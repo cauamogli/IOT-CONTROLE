@@ -8,6 +8,7 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 EXPORT_COLUMNS = [
     "LANÇAMENTO",
@@ -155,8 +156,24 @@ def build_excel(df: pd.DataFrame, titulo: str = "CONTROLE DE DESPESAS") -> bytes
         ws.column_dimensions[col].width = width
 
     ws.freeze_panes = "A6"
-    ws.auto_filter.ref = f"A5:H{max(total_row - 1, header_row)}"
     ws.sheet_view.showGridLines = False
+
+    # Tabela real do Excel (ListObject): cabeçalho + linhas de dados (sem a linha
+    # de TOTAL). Dá os filtros e o "formato de tabela" nativo. As cores por status
+    # ficam por cima das faixas da tabela (faixas desligadas para não conflitar).
+    last_data_row = total_row - 1
+    if last_data_row >= data_start:  # há pelo menos uma linha de dados
+        table = Table(displayName="ControleDespesas", ref=f"A{header_row}:H{last_data_row}")
+        table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium2",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=False,
+            showColumnStripes=False,
+        )
+        ws.add_table(table)
+    else:
+        ws.auto_filter.ref = f"A{header_row}:H{header_row}"
 
     # Aba de resumo com os indicadores principais.
     summary = wb.create_sheet("Resumo")
