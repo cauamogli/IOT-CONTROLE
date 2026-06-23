@@ -260,11 +260,12 @@ def extract_text_direct(pdf_path: str | Path) -> str:
 
 _RAPIDOCR_ENGINE = None
 _RAPIDOCR_TRIED = False
+_RAPIDOCR_ERROR = ""
 
 
 def _get_rapidocr():
-    """Carrega o RapidOCR uma única vez (modelos ONNX, sem dependência de sistema)."""
-    global _RAPIDOCR_ENGINE, _RAPIDOCR_TRIED
+    """Carrega o RapidOCR uma única vez (modelos ONNX embutidos no pacote)."""
+    global _RAPIDOCR_ENGINE, _RAPIDOCR_TRIED, _RAPIDOCR_ERROR
     if _RAPIDOCR_TRIED:
         return _RAPIDOCR_ENGINE
     _RAPIDOCR_TRIED = True
@@ -272,15 +273,32 @@ def _get_rapidocr():
         from rapidocr_onnxruntime import RapidOCR
 
         _RAPIDOCR_ENGINE = RapidOCR()
-    except Exception:
+    except Exception as exc:
         _RAPIDOCR_ENGINE = None
+        _RAPIDOCR_ERROR = f"{type(exc).__name__}: {exc}"
     return _RAPIDOCR_ENGINE
+
+
+def rapidocr_error() -> str:
+    """Mensagem do erro ao carregar o RapidOCR (vazia se carregou bem)."""
+    _get_rapidocr()
+    return _RAPIDOCR_ERROR
+
+
+# Limita o lado maior da imagem renderizada. PDFs escaneados costumam ter páginas
+# enormes; sem limite, cada página vira uma imagem de >100 MB e estoura a memória
+# de servidores pequenos (ex.: Streamlit Cloud), além de deixar o OCR lento.
+MAX_RENDER_SIDE = 2600
 
 
 def _render_page_array(page, scale: float = 2.0):
     import numpy as np
 
-    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+    longest_pts = max(page.rect.width, page.rect.height) or 1.0
+    # Não aumenta além de `scale`, mas reduz quando a página é muito grande.
+    effective = min(scale, MAX_RENDER_SIDE / longest_pts)
+    effective = max(effective, 0.2)
+    pix = page.get_pixmap(matrix=fitz.Matrix(effective, effective), alpha=False)
     arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
     if pix.n == 4:
         arr = arr[:, :, :3]
@@ -860,14 +878,24 @@ def extract_rows_from_pdf(
 
     combined = normalize_text("\n".join(boxes_to_text(p) for p in pages_boxes))
 
-    # Último recurso: RapidOCR ausente e sem texto -> Tesseract no PDF inteiro.
+    # PDF escaneado (sem texto) e RapidOCR indisponível: tenta Tesseract; se não
+    # houver, devolve um erro explícito com a causa real (ajuda no diagnóstico).
     if use_ocr and len(combined.strip()) < 40 and _get_rapidocr() is None:
+        ocr_err = rapidocr_error()
         try:
             text = normalize_text(extract_text_ocr(pdf_path, lang=ocr_lang))
+            if len(text.strip()) < 40:
+                raise RuntimeError("Tesseract não retornou texto.")
             fake_page: list[Box] = [(0, i, 1, i + 1, ln) for i, ln in enumerate(text.splitlines())]
             return [_row_from_pages([fake_page], filename, "ocr")]
         except Exception as exc:
-            return [_row_from_pages([], filename, "erro", [f"OCR não executado: {exc}"])]
+            detalhe = ocr_err or str(exc)
+            return [
+                _row_from_pages(
+                    [], filename, "erro",
+                    [f"Motor de OCR indisponível no servidor ({detalhe})."],
+                )
+            ]
 
     groups = _group_pages_by_comprovante(pages_boxes)
     multi = sum(1 for p in pages_boxes if _is_comprovante_page(p)) >= 2

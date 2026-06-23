@@ -12,6 +12,7 @@ from extractor import (
     A_REVISAR,
     extract_rows_from_pdf,
     is_blank_or_review,
+    rapidocr_error,
     validate_status_for_row,
 )
 
@@ -275,6 +276,15 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+_ocr_err = rapidocr_error()
+if _ocr_err:
+    st.error(
+        "⚠️ O motor de OCR (RapidOCR) não pôde ser carregado no servidor, então "
+        "PDFs escaneados não serão lidos. Detalhe técnico: "
+        f"`{_ocr_err}`. Em geral resolve-se adicionando um arquivo `packages.txt` "
+        "com `libgl1` e `libglib2.0-0` e reiniciando o app."
+    )
 
 # Sidebar de importação
 with st.sidebar:
