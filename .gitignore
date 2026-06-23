@@ -1,0 +1,33 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# PDFs e comprovantes (dados sensíveis — não versionar)
+*.pdf
+PDFS/
+pdfs/
+
+# Planilhas geradas
+*.xlsx
+
+# Modelos/caches de OCR
+.wdm/
+*.onnx
+.pdfbox.cache
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/secrets.toml
