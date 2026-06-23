@@ -110,7 +110,7 @@ def build_excel(df: pd.DataFrame, titulo: str = "CONTROLE DE DESPESAS") -> bytes
                 parsed = parse_money(value)
                 cell.value = parsed if parsed is not None else value
                 if parsed is not None:
-                    cell.number_format = 'R$ #,##0.00'
+                    cell.number_format = '"R$" #,##0.00'
             else:
                 cell.value = value
 
@@ -139,7 +139,7 @@ def build_excel(df: pd.DataFrame, titulo: str = "CONTROLE DE DESPESAS") -> bytes
         cell.border = Border(top=BORDER, bottom=BORDER, left=BORDER, right=BORDER)
         cell.alignment = Alignment(horizontal="center")
         if col in [5, 6, 8]:
-            cell.number_format = 'R$ #,##0.00'
+            cell.number_format = '"R$" #,##0.00'
 
     widths = {
         "A": 16,
@@ -176,7 +176,7 @@ def build_excel(df: pd.DataFrame, titulo: str = "CONTROLE DE DESPESAS") -> bytes
         summary.cell(row=idx, column=1).fill = PatternFill("solid", fgColor=LIGHT_BLUE)
         summary.cell(row=idx, column=2).border = Border(top=BORDER, bottom=BORDER, left=BORDER, right=BORDER)
         if idx in [3, 4, 5]:
-            summary.cell(row=idx, column=2).number_format = 'R$ #,##0.00'
+            summary.cell(row=idx, column=2).number_format = '"R$" #,##0.00'
     summary.column_dimensions["A"].width = 24
     summary.column_dimensions["B"].width = 20
     summary.sheet_view.showGridLines = False
